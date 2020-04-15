@@ -244,15 +244,15 @@ build_model.network_fn=DNN(num_outputs=15)
 
 It should be noted, sometimes we want to reference to a third_party or builtin functions
 and it's not reasonable to register them all as configurable reference by gin.external_configurable 
-explict in advance. The following are difference between in `Configurable reference` and `Ordinary reference` 
+explict in advance. The following are the differences between in `Configurable reference` and `Ordinary reference`:
 
 * `Configurable reference` are functions and classes that decorated by `@gin.configurable` or registered by 
-`gin.external_configurable` explict. It's a subset of `Ordinary reference`.
+`gin.external_configurable` explictly. It's a subset of `Ordinary reference`.
 
 * `Configurable reference` can be configured with default values by Gin.
 
 * When refer to a `Configurable reference`,  you should make sure that the reference is 
-registered to `gin` (imported) before parsing the config.
+registered to `gin` (decorated using @gin.configurable and imported) before parsing the config.
 
 * When refer to an `Ordinary reference`, you should make sure that the reference is defined and can be accessed
 when the reference is actually evaluated. But a good practice is to avoid referencing local variables. 
