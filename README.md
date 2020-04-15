@@ -217,8 +217,8 @@ dnn.activation_fn = tf.nn.tanh
 
 Sometimes it is necessary to pass the result of calling a specific function or
 class constructor. Gin supports "evaluating" ordinary references via the
-`name(*args, **kwargs)` syntax. For example, say we wanted to use the class form of `DNN` from
-above (which implements `__call__` to "behave" like a function) in the following
+`name(*args, **kwargs)` syntax. For example, say we want to use the class form of `DNN` from
+the above (which implements `__call__` to "behave" like a function) in the following
 Python code:
 
 ```python
@@ -243,19 +243,20 @@ build_model.network_fn=DNN(num_outputs=15)
 
 
 It should be noted, sometimes we want to reference to a third_party or builtin functions
-and it's not reasonable to  register them all as configurable reference by gin.external_configurable 
-explict in advance. And the flowing are difference between in `Configurable reference` and `Ordinary reference` 
+and it's not reasonable to register them all as configurable reference by gin.external_configurable 
+explict in advance. The following are difference between in `Configurable reference` and `Ordinary reference` 
 
 * `Configurable reference` are functions and classes that decorated by `@gin.configurable` or registered by 
-`gin.external_configurable` explict. It's a subset of `Ordinary reference`
+`gin.external_configurable` explict. It's a subset of `Ordinary reference`.
 
-* `Configurable reference` can be configured with default values by Gin
+* `Configurable reference` can be configured with default values by Gin.
 
-* When refer to a `Configurable reference`,  should make sure that the reference is 
-registered in `gin` (imported) before parsing the config
+* When refer to a `Configurable reference`,  you should make sure that the reference is 
+registered to `gin` (imported) before parsing the config.
 
-* When refer to an `Ordinary reference`, should make sure that the reference is defined and can visited
-when the reference is actually evaluated
+* When refer to an `Ordinary reference`, you should make sure that the reference is defined and can be accessed
+when the reference is actually evaluated. But a good practice is to avoid referencing local variables. 
+For the purpose of readability and stability, you should only use `Ordinary reference` for glabally accessible identifiers.
 
 
 
