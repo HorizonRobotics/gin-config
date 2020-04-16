@@ -699,6 +699,47 @@ class ConfigTest(absltest.TestCase):
     instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
     self.assertEqual(instance.implement_me(), 'bananaphone')
 
+  def testLocalVariableReference(self):
+    config_str = """
+          configurable2.non_kwarg = a
+    """
+    config.parse_config(config_str)
+
+    a = 1
+    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
+    self.assertEqual(instance, a)
+
+    a = 2
+    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
+    self.assertEqual(instance, a)
+
+  def testUnregisteredFunction(self):
+    config_str = """
+             configurable2.non_kwarg = numpy.abs
+    """
+    config.parse_config(config_str)
+    import numpy
+    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
+    self.assertEqual(instance, numpy.abs)
+
+  def testUnregisteredFunctionEvaluate(self):
+    def test_fun(non_kwarg, kwarg1=None, kwarg2=None, kwarg3=None):
+      return non_kwarg, kwarg1, kwarg2, kwarg3
+    config_str = """
+            configurable2.non_kwarg = test_fun(0, 1, kwarg3=test_fun(0, 1, 2, 3)) 
+    """
+    config.parse_config(config_str)
+    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
+    self.assertEqual(instance, (0, 1, None, (0, 1, 2, 3)))
+
+    config_str = """
+            configurable2.non_kwarg = eval('lambda x, y: x+y')
+    """
+    config.parse_config(config_str)
+    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
+    self.assertEqual(instance(2, 3), 5)
+
+
   def testConfigurableEvaluateWithKeywordargs(self):
     config_str = """   
           M = 'macro'       
@@ -720,7 +761,6 @@ class ConfigTest(absltest.TestCase):
     instance = ConfigurableClass()
     self.assertEqual(instance.kwarg1, ((1,2,3), None))
     self.assertEqual(instance.kwarg2, (['macro', 1, {'name': 'statler'}], None))
-
 
   def testExternalConfigurableClass(self):
     config_str = """

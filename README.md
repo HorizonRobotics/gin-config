@@ -136,7 +136,7 @@ Note that no other changes are required to the Python code, beyond adding the
 
 [multiple files]: https://github.com/google/gin-config/tree/master/docs/index.md#experiments-with-multiple-gin-files-and-extra-command-line-bindings
 
-### 3. Passing functions, classes, and instances ("configurable references")
+### 3. Passing configurable functions, classes, and instances ("configurable references")
 
 In addition to accepting Python literal values, Gin also supports passing other
 Gin-configurable functions or classes. In the example above, we might want to
@@ -168,7 +168,7 @@ train_fn.optimizer_cls = @tf.train.GradientDescentOptimizer
 
 Sometimes it is necessary to pass the result of calling a specific function or
 class constructor. Gin supports "evaluating" configurable references via the
-`@name(**kwargs)` syntax. For example, say we wanted to use the class form of `DNN` from
+`@name(*args, **kwargs)` syntax. For example, say we wanted to use the class form of `DNN` from
 above (which implements `__call__` to "behave" like a function) in the following
 Python code:
 
@@ -202,7 +202,65 @@ call to `build_model`.
 
 [external configurables]: https://github.com/google/gin-config/tree/master/docs/index.md#making-existing-classes-or-functions-configurable
 
-### 4. Configuring the same function in different ways ("scopes")
+
+### 4. Passing ordinary functions, classes, and instances ("ordinary references")
+
+In addition to accepting Python literal values, Gin also supports passing other
+functions or classes. In the example above, we might want to change the `activation_fn` 
+parameter. Say `tf.nn.tanh`, we can pass it to `activation_fn` by referring to it as 
+`tanh` (or `tf.nn.tanh`):
+
+```python
+# Inside "config.gin"
+dnn.activation_fn = tf.nn.tanh
+```
+
+Sometimes it is necessary to pass the result of calling a specific function or
+class constructor. Gin supports "evaluating" ordinary references via the
+`name(*args, **kwargs)` syntax. For example, say we want to use the class form of `DNN` from
+the above (which implements `__call__` to "behave" like a function) in the following
+Python code:
+
+```python
+def build_model(inputs, network_fn, ...):
+  logits = network_fn(inputs)
+  ...
+```
+
+We could pass an instance of the `DNN` class to the `network_fn` parameter:
+
+```python
+# Inside "config.gin"
+build_model.network_fn = DNN()
+```
+
+or 
+
+```python
+# Inside "config.gin"
+build_model.network_fn=DNN(num_outputs=15)
+```
+
+
+It should be noted, sometimes we want to reference to a third_party or builtin functions
+and it's not reasonable to register them all as configurable reference by gin.external_configurable 
+explict in advance. The following are the differences between in `Configurable reference` and `Ordinary reference`:
+
+* `Configurable reference` are functions and classes that decorated by `@gin.configurable` or registered by 
+`gin.external_configurable` explictly. It's a subset of `Ordinary reference`.
+
+* `Configurable reference` can be configured with default values by Gin.
+
+* When refer to a `Configurable reference`,  you should make sure that the reference is 
+registered to `gin` (decorated using @gin.configurable and imported) before parsing the config.
+
+* When refer to an `Ordinary reference`, you should make sure that the reference is defined and can be accessed
+when the reference is actually evaluated. But a good practice is to avoid referencing local variables. 
+For the purpose of readability and stability, you should only use `Ordinary reference` for glabally accessible identifiers.
+
+
+
+### 5. Configuring the same function in different ways ("scopes")
 
 What happens if we want to configure the same function in different ways? For
 instance, imagine we're building a GAN, where we might have a "generator"
@@ -241,7 +299,7 @@ Any parameters set on the "root" (unscoped) function name are inherited by
 scoped variants (unless explicitly overridden), so in the above example both the
 generator and the discriminator use the `tf.nn.tanh` activation function.
 
-### 5. Full hierarchical configuration
+### 6. Full hierarchical configuration
 
 The greatest degree of flexibility and configurability in a project is achieved
 by writing small modular functions and "wiring them up" hierarchically via
@@ -337,7 +395,7 @@ Gin is still in alpha development and some corner-case behaviors may be
 changed in backwards-incompatible ways. We recommend the following best
 practices:
 
--   Minimize use of evaluated configurable references (`@name(**kwargs)`), especially
+-   Minimize use of evaluated configurable references (`@name(*args, **kwargs)`), especially
     when combined with macros (where the fact that the value is not cached may
     be surprising to new users).
 -   Avoid nesting of scopes (i.e., `scope1/scope2/function_name`). While

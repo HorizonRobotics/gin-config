@@ -47,18 +47,36 @@ class ParserDelegate(object):
   __metaclass__ = abc.ABCMeta
 
   @abc.abstractmethod
-  def configurable_reference(self, scoped_configurable_name, evaluate, kwargs):
+  def configurable_reference(self, scoped_configurable_name, evaluate, args, kwargs):
     """Called to construct an object representing a configurable reference.
 
     Args:
       scoped_configurable_name: The name of the configurable reference,
         including all scopes.
       evaluate: Whether the configurable reference should be evaluated.
+      args: position arguments for configurable reference when evaluated
+      kwargs: keyword arguments for configurable reference when evaluated
 
     Returns:
       Should return an object representing the configurable reference.
     """
     pass
+
+  @abc.abstractmethod
+  def identifier_reference(self, identifier, evaluate, args, kwargs):
+    """Called to construct an object representing a identifier reference
+
+    Args:
+      identifier: The name of the reference
+      evaluate: Whether the reference should be evaluated.
+      args: position arguments for reference when evaluated
+      kwargs: keyword arguments for reference when evaluated
+
+    Returns:
+      Should return an object representing the reference.
+    """
+    pass
+
 
   @abc.abstractmethod
   def macro(self, macro_name):
@@ -241,7 +259,8 @@ class ConfigParser(object):
     """
     parsers = [
         self._maybe_parse_container, self._maybe_parse_basic_type,
-        self._maybe_parse_configurable_reference, self._maybe_parse_macro
+        self._maybe_parse_configurable_reference, self._maybe_parse_macro,
+        self._maybe_parse_identifier_reference
     ]
     for parser in parsers:
       success, value = parser()
@@ -393,8 +412,9 @@ class ConfigParser(object):
       token_value += self._current_token.value
       self._advance()
 
-    basic_type_tokens = [tokenize.NAME, tokenize.NUMBER, tokenize.STRING]
-    continue_parsing = self._current_token.kind in basic_type_tokens
+    basic_type_tokens = [tokenize.NUMBER, tokenize.STRING]
+    continue_parsing = (self._current_token.kind in basic_type_tokens
+                        or self._current_token.value in ['None', 'True', 'False'])
     if not continue_parsing:
       return False, None
 
@@ -423,32 +443,82 @@ class ConfigParser(object):
     self._advance_one_token()
     scoped_name = self._parse_selector(allow_periods_in_scope=True)
     evaluate = False
+    args = []
     kwargs = dict()
     if self._current_token.value == '(':
-      self._advance()
       evaluate = True
-      while self._current_token.value != ')':
-        if self._current_token.kind != tokenize.NAME:
-          raise self._raise_syntax_error('Unexpected token.')
-        arg_name = self._current_token.value
-        self._advance_one_token()
-        if self._current_token.value != '=':
-          raise self._raise_syntax_error("Expected '='.")
-        self._advance()
-        arg_value = self.parse_value()
-        kwargs[arg_name] = arg_value
-        if self._current_token.value == ',':
-          self._advance()
-          continue
-        if self._current_token.value != ')':
-          self._raise_syntax_error("Expected ')'.")
-      self._advance_one_token()
+      args, kwargs = self._parse_args_kwargs()
+
     self._skip_whitespace_and_comments()
 
     with utils.try_with_location(location):
-      reference = self._delegate.configurable_reference(scoped_name, evaluate, kwargs)
+      reference = self._delegate.configurable_reference(scoped_name, evaluate, args, kwargs)
 
     return True, reference
+
+  def _maybe_parse_identifier_reference(self):
+    """Try to parse a identifier reference([package.package.]var_or_fn_or_cls_name"""
+    location = self._current_location()
+
+    if self._current_token.kind != tokenize.NAME:
+      self._raise_syntax_error('Unexpected token.')
+
+    begin_line_num = self._current_token.begin[0]
+    begin_char_num = self._current_token.begin[1]
+    end_char_num = self._current_token.end[1]
+    line = self._current_token.line
+
+    identifier_parts = []
+    # This accepts an alternating sequence of NAME  or '.' tokens.
+    step_parity = 0
+    while (step_parity == 0 and self._current_token.kind == tokenize.NAME or
+           step_parity == 1 and self._current_token.value =='.'):
+      identifier_parts.append(self._current_token.value)
+      step_parity = not step_parity
+      end_char_num = self._current_token.end[1]
+      self._advance_one_token()
+    self._skip_whitespace_and_comments()
+    identifier = ''.join(identifier_parts)
+    untokenized_identifier = line[begin_char_num:end_char_num]
+    valid_format = MODULE_RE.match(identifier)
+    if untokenized_identifier != identifier or not valid_format:
+      location = (self._filename, begin_line_num, begin_char_num + 1, line)
+      self._raise_syntax_error('Malformatted identifier.', location)
+
+    evaluate = False
+    args = []
+    kwargs = dict()
+    if self._current_token.value == '(':
+      evaluate = True
+      args, kwargs = self._parse_args_kwargs()
+    self._skip_whitespace_and_comments()
+
+    with utils.try_with_location(location):
+      reference = self._delegate.identifier_reference(identifier, evaluate, args, kwargs)
+    return True, reference
+
+  def _parse_args_kwargs(self):
+    location = self._current_location()
+    args = []
+    kwargs = {}
+    self._advance()
+    while self._current_token.value != ')':
+      arg = self.parse_value()
+      if self._current_token.value == '=':
+        self._advance()
+        arg_name = repr(arg)
+        if not IDENTIFIER_RE.match(arg_name):
+          self._raise_syntax_error('Unexpected token .', location)
+        kwargs[arg_name] = self.parse_value()
+      else:
+        args.append(arg)
+      if self._current_token.value == ',':
+        self._advance()
+        continue
+      if self._current_token.value != ')':
+        self._raise_syntax_error("Expected ')'.")
+    self._advance_one_token()
+    return args, kwargs
 
   def _maybe_parse_macro(self):
     """Try to parse an macro (%scope/name)."""
