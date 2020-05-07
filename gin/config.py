@@ -152,7 +152,7 @@ _REGISTRY = selector_map.SelectorMap()
 _CONFIG = {}
 
 # Keeps a set of module names that were dynamically imported via config files.
-_IMPORTED_MODULES = set()
+_IMPORTED_MODULES = dict()
 
 # Maps `(scope, selector)` tuples to all configurable parameter values used
 # during program execution (including default argument values).
@@ -293,6 +293,14 @@ class IdentifierReference(object):
     self._args = args or []
     self._kwargs = kwargs or {}
 
+  def evaluable(self):
+    """Return True if the identifer can be found in imported modules."""
+    try:
+      eval(self._identifier, copy.copy(_IMPORTED_MODULES))
+      return True
+    except:
+      return False
+
   def __repr__(self):
     maybe_parens = ''
     if self._evaluate:
@@ -306,8 +314,7 @@ class IdentifierReference(object):
     return '{}{}'.format(self._identifier, maybe_parens)
 
   def __deepcopy__(self, memo):
-    frame = memo['_frame']
-    identifier =  eval(self._identifier, frame.f_locals, frame.f_globals)
+    identifier =  eval(self._identifier, copy.copy(_IMPORTED_MODULES))
     if self._evaluate:
       args = []
       if self._args:
@@ -326,7 +333,7 @@ class ConfigurableReference(object):
   def __init__(self, scoped_selector, evaluate, args=None, kwargs=None):
     self._scoped_selector = scoped_selector
     self._evaluate = evaluate
-    self._args = None
+    self._args = args
     self._kwargs = kwargs or {}
 
     scoped_selector_parts = self._scoped_selector.split('/')
@@ -433,9 +440,9 @@ class ConfigurableReference(object):
       args = []
       kwargs = {}
       if self._args:
-        args = copy.deepcopy(self._args, memo=memo)
+        args = copy.deepcopy(self._args)
       if self._kwargs:
-        kwargs = copy.deepcopy(self._kwargs, memo=memo)
+        kwargs = copy.deepcopy(self._kwargs)
       return self._scoped_configurable_fn(*args, **kwargs)
     return self._scoped_configurable_fn
 
@@ -1074,7 +1081,7 @@ def _make_gin_wrapper(fn, fn_or_cls, name, selector, whitelist, blacklist):
     # `ConfigurableReference` instances buried somewhere inside `new_kwargs`.
     # See the docstring on `ConfigurableReference.__deepcopy__` above for more
     # details on the dark magic happening here.
-    new_kwargs = copy.deepcopy(new_kwargs, memo=dict(_frame=sys._getframe(1)))
+    new_kwargs = copy.deepcopy(new_kwargs)
 
     # Validate args marked as REQUIRED have been bound in the Gin config.
     missing_required_params = []
@@ -1671,8 +1678,7 @@ def parse_config(bindings, skip_unknown=False):
     elif isinstance(statement, config_parser.ImportStatement):
       if skip_unknown:
         try:
-          __import__(statement.module)
-          _IMPORTED_MODULES.add(statement.module)
+          _IMPORTED_MODULES[statement.module] = __import__(statement.module)
         except ImportError:
           tb_len = len(traceback.extract_tb(sys.exc_info()[2]))
           log_str = ('Skipping import of unknown module `%s` '
@@ -1687,8 +1693,7 @@ def parse_config(bindings, skip_unknown=False):
           logging.info(log_str, *log_args)
       else:
         with utils.try_with_location(statement.location):
-          __import__(statement.module)
-        _IMPORTED_MODULES.add(statement.module)
+          _IMPORTED_MODULES[statement.module] = __import__(statement.module)
     elif isinstance(statement, config_parser.IncludeStatement):
       with utils.try_with_location(statement.location):
         parse_config_file(statement.filename, skip_unknown)

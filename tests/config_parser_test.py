@@ -25,6 +25,7 @@ import random
 from absl.testing import absltest
 
 from gin import config_parser
+from gin import config
 
 import six
 
@@ -78,7 +79,6 @@ class _TestConfigurableReference(
     collections.namedtuple('_TestConfigurableReference', ['name', 'evaluate'])):
   pass
 
-
 class _TestMacro(collections.namedtuple('_TestMacro', ['name'])):
   pass
 
@@ -92,6 +92,11 @@ class _TestParserDelegate(config_parser.ParserDelegate):
     if self._raise_error:
       raise ValueError('Unknown configurable.')
     return _TestConfigurableReference(scoped_name, evaluate)
+
+  def identifier_reference(self, identifier, evaluate, args=None, kwargs=None):
+    if self._raise_error:
+      raise ValueError('Unknown configurable.')
+    return config.IdentifierReference(identifier, evaluate, args, kwargs)
 
   def macro(self, scoped_name):
     if self._raise_error:
@@ -153,13 +158,12 @@ class ConfigParserTest(absltest.TestCase):
         scope/some_fn.arg2 = Garbage  # <-- Not a valid Python value.
       """)
     self.assertEqual(assert_raises.exception.lineno, 3)
-    self.assertEqual(assert_raises.exception.offset, 29)
+    self.assertEqual(assert_raises.exception.offset, 69)
     self.assertEqual(
         assert_raises.exception.text.strip(),
         'scope/some_fn.arg2 = Garbage  # <-- Not a valid Python value.')
     six.assertRegex(self, str(assert_raises.exception),
-                    r"malformed (string|node or string: <_ast.Name [^\n]+>)\n"
-                    r"    Failed to parse token 'Garbage' \(line 3\)")
+                    r"Cannot find symbol \'Garbage\'.* \(line 3\)")
 
   def testUnknownConfigurableAndMacro(self):
     with six.assertRaisesRegex(self, ValueError, 'line 2\n.*@raise_an_error'):
