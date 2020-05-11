@@ -28,6 +28,7 @@ import tokenize
 
 from gin import selector_map
 from gin import utils
+from gin import config
 
 import six
 
@@ -238,6 +239,7 @@ class ConfigParser(object):
     else:  # We saw an '='.
       self._advance_one_token()
       value = self.parse_value()
+      self._validate_value(value)
       scope, selector, arg_name = parse_binding_key(binding_key_or_keyword)
       statement = BindingStatement(scope, selector, arg_name, value, stmt_loc)
 
@@ -299,6 +301,13 @@ class ConfigParser(object):
     if ignore_char_num:
       char_num = None
     return (self._filename, line_num, char_num, self._current_token.line)
+
+  def _validate_value(self, value):
+    if isinstance(value, config.IdentifierReference):
+      if not value.evaluable():
+        self._raise_syntax_error("Cannot find symbol '%s'. Perhaps you forgot "
+          "necessary module." % value)
+
 
   def _raise_syntax_error(self, msg, location=None):
     if not location:
@@ -388,6 +397,10 @@ class ConfigParser(object):
       saw_comma = False
       while self._current_token.value != close_bracket:
         values.append(parse_item())
+        if type_fn == dict:
+          self._validate_value(values[-1][1])
+        else:
+          self._validate_value(values[-1])
         if self._current_token.value == ',':
           saw_comma = True
           self._advance()
@@ -502,6 +515,7 @@ class ConfigParser(object):
     args = []
     kwargs = {}
     self._advance()
+
     while self._current_token.value != ')':
       arg = self.parse_value()
       if self._current_token.value == '=':
@@ -509,8 +523,11 @@ class ConfigParser(object):
         arg_name = repr(arg)
         if not IDENTIFIER_RE.match(arg_name):
           self._raise_syntax_error('Unexpected token .', location)
-        kwargs[arg_name] = self.parse_value()
+        value = self.parse_value()
+        self._validate_value(value)
+        kwargs[arg_name] = value
       else:
+        self._validate_value(arg)
         args.append(arg)
       if self._current_token.value == ',':
         self._advance()

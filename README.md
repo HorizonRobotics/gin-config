@@ -185,7 +185,7 @@ We could pass an instance of the `DNN` class to the `network_fn` parameter:
 build_model.network_fn = @DNN()
 ```
 
-or 
+or
 
 ```python
 # Inside "config.gin"
@@ -206,8 +206,8 @@ call to `build_model`.
 ### 4. Passing ordinary functions, classes, and instances ("ordinary references")
 
 In addition to accepting Python literal values, Gin also supports passing other
-functions or classes. In the example above, we might want to change the `activation_fn` 
-parameter. Say `tf.nn.tanh`, we can pass it to `activation_fn` by referring to it as 
+functions or classes. In the example above, we might want to change the `activation_fn`
+parameter. Say `tf.nn.tanh`, we can pass it to `activation_fn` by referring to it as
 `tanh` (or `tf.nn.tanh`):
 
 ```python
@@ -234,30 +234,27 @@ We could pass an instance of the `DNN` class to the `network_fn` parameter:
 build_model.network_fn = DNN()
 ```
 
-or 
+or
 
 ```python
 # Inside "config.gin"
 build_model.network_fn=DNN(num_outputs=15)
 ```
 
-
 It should be noted, sometimes we want to reference to a third_party or builtin functions
-and it's not reasonable to register them all as configurable reference by gin.external_configurable 
+and it's not reasonable to register them all as configurable reference by gin.external_configurable
 explict in advance. The following are the differences between in `Configurable reference` and `Ordinary reference`:
 
-* `Configurable reference` are functions and classes that decorated by `@gin.configurable` or registered by 
+* `Configurable reference` are functions and classes that decorated by `@gin.configurable` or registered by
 `gin.external_configurable` explictly. It's a subset of `Ordinary reference`.
 
 * `Configurable reference` can be configured with default values by Gin.
 
-* When refer to a `Configurable reference`,  you should make sure that the reference is 
+* When refer to a `Configurable reference`,  you should make sure that the reference is
 registered to `gin` (decorated using @gin.configurable and imported) before parsing the config.
 
 * When refer to an `Ordinary reference`, you should make sure that the reference is defined and can be accessed
-when the reference is actually evaluated. But a good practice is to avoid referencing local variables. 
-For the purpose of readability and stability, you should only use `Ordinary reference` for glabally accessible identifiers.
-
+from modules imported by Gin (through import statement).
 
 
 ### 5. Configuring the same function in different ways ("scopes")

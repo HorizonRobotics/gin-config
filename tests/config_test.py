@@ -699,38 +699,23 @@ class ConfigTest(absltest.TestCase):
     instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
     self.assertEqual(instance.implement_me(), 'bananaphone')
 
-  def testLocalVariableReference(self):
-    config_str = """
-          configurable2.non_kwarg = a
-    """
-    config.parse_config(config_str)
-
-    a = 1
-    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
-    self.assertEqual(instance, a)
-
-    a = 2
-    instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
-    self.assertEqual(instance, a)
-
   def testUnregisteredFunction(self):
     config_str = """
+             import numpy
              configurable2.non_kwarg = numpy.abs
     """
     config.parse_config(config_str)
-    import numpy
     instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
+    import numpy
     self.assertEqual(instance, numpy.abs)
 
   def testUnregisteredFunctionEvaluate(self):
-    def test_fun(non_kwarg, kwarg1=None, kwarg2=None, kwarg3=None):
-      return non_kwarg, kwarg1, kwarg2, kwarg3
     config_str = """
-            configurable2.non_kwarg = test_fun(0, 1, kwarg3=test_fun(0, 1, 2, 3)) 
+            configurable2.non_kwarg = dict(a=0, b=1, c=2, d=3)
     """
     config.parse_config(config_str)
     instance, _ = configurable2()  # pylint: disable=no-value-for-parameter
-    self.assertEqual(instance, (0, 1, None, (0, 1, 2, 3)))
+    self.assertEqual(instance, dict(a=0, b=1, c=2, d=3))
 
     config_str = """
             configurable2.non_kwarg = eval('lambda x, y: x+y')
@@ -741,8 +726,8 @@ class ConfigTest(absltest.TestCase):
 
 
   def testConfigurableEvaluateWithKeywordargs(self):
-    config_str = """   
-          M = 'macro'       
+    config_str = """
+          M = 'macro'
           ConfigurableClass.kwarg1 = @configurable2(non_kwarg='statler')
           ConfigurableClass.kwarg2 = @configurable2(non_kwarg=%M, kwarg1='waldorf')
     """
@@ -751,9 +736,9 @@ class ConfigTest(absltest.TestCase):
     self.assertEqual(instance.kwarg1, ('statler', None))
     self.assertEqual(instance.kwarg2, ('macro', 'waldorf'))
 
-    config_str = """   
-          M = 'macro' 
-          ConfigurableClass.kwarg1 = @configurable2(non_kwarg=(1,2,3))                
+    config_str = """
+          M = 'macro'
+          ConfigurableClass.kwarg1 = @configurable2(non_kwarg=(1,2,3))
           ConfigurableClass.kwarg2 = @configurable2(non_kwarg=[%M, 1, {'name': 'statler'}])
     """
     config.clear_config()
