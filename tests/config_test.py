@@ -1683,23 +1683,6 @@ class ConfigTest(absltest.TestCase):
     config.add_config_file_search_path(absolute_testdata_path)
     config.parse_config_files_and_bindings([gin_file], None)
 
-  def testScopeMapToMultipleSelectors(self):
-    config_str = """
-      scope_a/ConfigurableClass.kwarg1 = 'x'
-      scope_a/ConfigurableClass.kwarg2 = 'y'
-    """
-    config_str1 = config_str + "\t scope_b/ConfigurableSubclass.kwarg1 = 'z'"
-    config.parse_config(config_str1)
-
-    config_str2 = config_str + "\t scope_a/ConfigurableSubclass.kwarg1 = 'z'"
-    self.assertRaises(ValueError, config.parse_config, config_str2)
-
-    config_str3 = config_str + "\t scope_a/scope_b/ConfigurableSubclass.kwarg1 = 'z'"
-    self.assertRaises(ValueError, config.parse_config, config_str3)
-
-    config_str4 = config_str + "\t scope_b/scope_a/ConfigurableSubclass.kwarg1 = 'z'"
-    config.parse_config(config_str4)
-
 
 if __name__ == '__main__':
   absltest.main()
