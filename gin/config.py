@@ -150,8 +150,6 @@ _REGISTRY = selector_map.SelectorMap()
 # specifies the current global "configuration" set through `bind_parameter` or
 # `parse_config`, but doesn't include any functions' default argument values.
 _CONFIG = {}
-# Maps a scope string to a selector. Used for checking one-to-many mapping.
-_SCOPE_TO_SELECTOR = {}
 
 # Keeps a set of module names that were dynamically imported via config files.
 _IMPORTED_MODULES = dict()
@@ -195,30 +193,6 @@ _LOCATION_PREFIXES = ['']
 
 # Value to represent required parameters.
 REQUIRED = object()
-
-
-def _check_scope_to_selector_mapping(scope, selector):
-  """Check that each scope can only map to one selector. This is to ensure that
-  a binding won't overwrite (without the user's awareness) parameters in the code
-  under the same namescope.
-
-  Args:
-    scope (str): a (partiall) scope string in the form of 'A/B/C...'.
-    selector (str): The full selector of the configurable (name including any
-      module components).
-  """
-  # skip checking if the scope is global (None or '')
-  if scope != '':
-    scope_components = scope.split('/')
-    for i in range(1, len(scope_components) + 1):
-      partial_scope_str = '/'.join(scope_components[:i])
-      existing_selector = _SCOPE_TO_SELECTOR.setdefault(partial_scope_str,
-                                                        selector)
-      if existing_selector != selector:
-        raise ValueError(
-          "Any partial scope string can only map to one distinct selector! "
-          "Scope string: '{}'; Existing selector: '{}'; New selector: '{}'".format(
-          partial_scope_str, existing_selector, selector))
 
 
 def _find_class_construction_fn(cls):
@@ -370,13 +344,11 @@ class ConfigurableReference(object):
       _raise_unknown_reference_error(self)
 
     def reference_decorator(fn):
-      if self._scopes:
-        @six.wraps(fn)
-        def scoping_wrapper(*args, **kwargs):
-          with config_scope(self._scopes):
-            return fn(*args, **kwargs)
-        return scoping_wrapper
-      return fn
+      @six.wraps(fn)
+      def scoping_wrapper(*args, **kwargs):
+        with config_scope(self._scopes):
+          return fn(*args, **kwargs)
+      return scoping_wrapper
     self._scoped_configurable_fn = _decorate_fn_or_cls(
         reference_decorator, self.configurable.fn_or_cls, True)
 
@@ -738,7 +710,6 @@ def bind_parameter(binding_key, value):
     raise RuntimeError('Attempted to modify locked Gin config.')
 
   pbk = ParsedBindingKey(binding_key)
-  _check_scope_to_selector_mapping(*pbk.config_key)
   fn_dict = _CONFIG.setdefault(pbk.config_key, {})
   fn_dict[pbk.arg_name] = value
 
