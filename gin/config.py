@@ -344,13 +344,11 @@ class ConfigurableReference(object):
       _raise_unknown_reference_error(self)
 
     def reference_decorator(fn):
-      if self._scopes:
-        @six.wraps(fn)
-        def scoping_wrapper(*args, **kwargs):
-          with config_scope(self._scopes):
-            return fn(*args, **kwargs)
-        return scoping_wrapper
-      return fn
+      @six.wraps(fn)
+      def scoping_wrapper(*args, **kwargs):
+        with config_scope(self._scopes):
+          return fn(*args, **kwargs)
+      return scoping_wrapper
     self._scoped_configurable_fn = _decorate_fn_or_cls(
         reference_decorator, self.configurable.fn_or_cls, True)
 

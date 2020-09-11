@@ -399,7 +399,7 @@ practices:
     supported there is some ongoing debate around ordering and behavior.
 -   When passing an unscoped reference (`@name`) as a parameter of a scoped
     function (`some_scope/fn.param`), the unscoped reference gets called in the
-    scope of the function it is passed to... but don't rely on this behavior.
+    global scope. *This behavior is different from the master repo.*
 -   Wherever possible, prefer to use a function or class's name as its
     configurable name, instead of overriding it. In case of naming collisions,
     use module names (which are encouraged to be renamed to match common usage)
