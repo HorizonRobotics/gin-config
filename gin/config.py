@@ -301,6 +301,21 @@ class IdentifierReference(object):
     except:
       return False
 
+  def __eq__(self, other):
+    if isinstance(other, self.__class__):
+      # pylint: disable=protected-access
+      return (
+          self._identifier == other._identifier and
+          self._evaluate == other._evaluate)
+      # pylint: enable=protected-access
+    return False
+
+  def __ne__(self, other):
+    return not self.__eq__(other)
+
+  def __hash__(self):
+    return hash(repr(self))
+
   def __repr__(self):
     maybe_parens = ''
     if self._evaluate:
