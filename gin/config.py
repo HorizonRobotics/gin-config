@@ -105,6 +105,12 @@ from gin import utils
 
 import six
 
+try:
+  from collections.abc import Iterable, Mapping, ValuesView
+except ImportError:
+  # In older version of Python, collections.abc was in the collections module.
+  from collections import Iterable, Mapping, ValuesView
+
 
 class _ScopeManager(threading.local):
   """Manages currently active config scopes.
@@ -1933,10 +1939,10 @@ def _iterate_flattened_values(value):
     yield value
     return
 
-  if isinstance(value, collections.Mapping):
-    value = collections.ValuesView(value)
+  if isinstance(value, Mapping):
+    value = ValuesView(value)
 
-  if isinstance(value, collections.Iterable):
+  if isinstance(value, Iterable):
     for nested_value in value:
       for nested_nested_value in _iterate_flattened_values(nested_value):
         yield nested_nested_value
